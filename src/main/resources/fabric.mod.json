@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "local_frequency",
+  "version": "${version}",
+  "name": "Local Frequency",
+  "description": "A standalone Minecraft radio and proximity communication mod.",
+  "authors": ["Local Frequency contributors"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "dev.localfrequency.client.LocalFrequencyClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
