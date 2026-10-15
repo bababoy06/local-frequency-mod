@@ -10,7 +10,7 @@ The first prototype adds a pixel-inspired radio receiver screen with a configura
 
 - Minecraft 1.21.11
 - Fabric Loader
-- Java 21
+- Java 25
 - Project ID: `local_frequency`
 
 ## Controls
@@ -30,6 +30,6 @@ The mod is intended to work independently of CivRails. Any CivRails integration 
 
 ## Development
 
-Open this project as a Gradle project in IntelliJ IDEA or VS Code with Java 21 installed. The build uses Fabric Loom and Minecraft's official Mojang mappings.
+Open this project as a Gradle project in IntelliJ IDEA or VS Code with Java 25 installed. The build uses Fabric Loom and Minecraft's official Mojang mappings.
 
 Run the Gradle `build` task to compile and package the mod. The remapped JAR will be written to `build/libs`.
