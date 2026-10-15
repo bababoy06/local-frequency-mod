@@ -15,7 +15,7 @@ The first prototype adds a pixel-inspired radio receiver screen with a configura
 
 ## Controls
 
-- **R** — open or close the Radio Receiver (change this under Options → Controls → Key Binds)
+- **"R"**: open or close the Radio Receiver (change this under Options → Controls → Key Binds)
 
 ## Planned milestones
 
