@@ -17,6 +17,29 @@ public final class RadioReceiverScreen extends Screen {
     private static final int MUTED = 0xFFB9B09B;
     private static final int GREEN = 0xFF65D56F;
 
+    private static final int MAX_PANEL_WIDTH = 430;
+    private static final int MAX_PANEL_HEIGHT = 430;
+    // Space taken by the casing, title plaque and footer around the content area.
+    private static final int CONTENT_TOP_OFFSET = 43;
+    private static final int CONTENT_BOTTOM_OFFSET = 38;
+    private static final int CHROME_HEIGHT = CONTENT_TOP_OFFSET + CONTENT_BOTTOM_OFFSET;
+
+    private static final int METER_SECTION_HEIGHT = 57;
+    private static final int INFO_SECTION_HEIGHT = 44;
+    private static final int FULL_ROW_HEIGHT = 34;
+    private static final int COMPACT_ROW_HEIGHT = 20;
+    private static final int ROW_GAP = 3;
+    private static final int SECTION_GAP = 6;
+    private static final int DETAILS_PANEL_HEIGHT = 88;
+
+    // Placeholder rows until discovery and networking exist.
+    private static final String[][] SIGNALS = {
+            {"[LOCAL]", "NEARBY USERS", "READY"},
+            {"[TOWER]", "NO TOWER TUNED", "--"},
+            {"[PING]", "NO ACTIVE PINGS", "--"},
+            {"[LINK]", "RELAY NETWORK", "OFFLINE"}
+    };
+
     public RadioReceiverScreen() {
         super(Component.literal("Radio Signal Menu"));
     }
@@ -34,10 +57,31 @@ public final class RadioReceiverScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        renderBackground(graphics, mouseX, mouseY, delta);
+        // No renderBackground() call here: vanilla already draws the blurred
+        // background for every screen, and blurring twice in one frame crashes
+        // with "Can only blur once per frame".
 
-        int panelWidth = Math.min(430, width - 24);
-        int panelHeight = Math.min(430, height - 18);
+        // Decide which sections fit before sizing the panel, so the screen
+        // degrades gracefully at large GUI scales or small windows:
+        // first drop the details panel, then compact the rows, then drop the info lines.
+        int maxPanelHeight = Math.min(MAX_PANEL_HEIGHT, height - 18);
+        int maxContentHeight = maxPanelHeight - CHROME_HEIGHT;
+
+        boolean showDetails = true;
+        boolean compactRows = false;
+        boolean showInfo = true;
+        if (contentHeight(showInfo, compactRows, showDetails) > maxContentHeight) {
+            showDetails = false;
+        }
+        if (contentHeight(showInfo, compactRows, showDetails) > maxContentHeight) {
+            compactRows = true;
+        }
+        if (contentHeight(showInfo, compactRows, showDetails) > maxContentHeight) {
+            showInfo = false;
+        }
+
+        int panelWidth = Math.min(MAX_PANEL_WIDTH, width - 24);
+        int panelHeight = Math.min(maxPanelHeight, contentHeight(showInfo, compactRows, showDetails) + CHROME_HEIGHT);
         int left = (width - panelWidth) / 2;
         int top = (height - panelHeight) / 2;
         int right = left + panelWidth;
@@ -67,13 +111,19 @@ public final class RadioReceiverScreen extends Screen {
         int contentLeft = left + 27;
         int contentRight = right - 27;
         int contentWidth = contentRight - contentLeft;
-        int y = top + 43;
+        int contentTop = top + CONTENT_TOP_OFFSET;
+        int contentBottom = bottom - CONTENT_BOTTOM_OFFSET;
+
+        // Safety net for extremely small windows: never draw content over the footer.
+        graphics.enableScissor(left + 18, contentTop, right - 18, contentBottom);
+        int y = contentTop;
 
         // Signal meter.
         drawCentered(graphics, "SIGNAL STRENGTH", width / 2, y, 0xFFFFFFFF);
         int meterTop = y + 17;
-        int meterLeft = left + 102;
-        int meterRight = right - 102;
+        int meterInset = contentWidth >= 220 ? 75 : 12;
+        int meterLeft = contentLeft + meterInset;
+        int meterRight = contentRight - meterInset;
         graphics.fill(meterLeft - 7, meterTop - 5, meterRight + 7, meterTop + 34, METAL_DARK);
         graphics.fill(meterLeft - 3, meterTop - 1, meterRight + 3, meterTop + 30, PANEL);
         int segments = 10;
@@ -88,41 +138,59 @@ public final class RadioReceiverScreen extends Screen {
                 graphics.fill(sx + 2, meterTop + 5, sx + Math.max(3, segmentWidth - 2), meterTop + 11, 0x55FFFFFF);
             }
         }
+        y += METER_SECTION_HEIGHT;
 
-        int infoTop = meterTop + 40;
-        drawCentered(graphics, "ACTIVE SIGNAL: [ 8/10 ]", width / 2, infoTop, 0xFFFFFFFF);
-        drawCenteredClipped(graphics, "STATUS: STANDBY - SCANNING", width / 2, infoTop + 18, contentWidth, MUTED);
-
-        // Nearby signal list.
-        int listTop = infoTop + 44;
-        int rowHeight = 34;
-        String[][] signals = {
-                {"[LOCAL]", "NEARBY USERS", "READY"},
-                {"[TOWER]", "NO TOWER TUNED", "--"},
-                {"[PING]", "NO ACTIVE PINGS", "--"},
-                {"[LINK]", "RELAY NETWORK", "OFFLINE"}
-        };
-        for (int i = 0; i < signals.length; i++) {
-            int rowTop = listTop + i * (rowHeight + 3);
-            graphics.fill(contentLeft, rowTop, contentRight, rowTop + rowHeight, 0xFF080706);
-            graphics.fill(contentLeft + 3, rowTop + 3, contentRight - 3, rowTop + rowHeight - 3, i == 0 ? 0xFF39301E : PANEL);
-            graphics.fill(contentLeft + 3, rowTop + 3, contentLeft + 6, rowTop + rowHeight - 3, i == 0 ? AMBER : METAL_DARK);
-            graphics.drawString(font, signals[i][0], contentLeft + 12, rowTop + 6, AMBER_BRIGHT, false);
-            graphics.drawString(font, signals[i][1], contentLeft + 12, rowTop + 18, 0xFFFFFFFF, false);
-            int statusWidth = font.width(signals[i][2]);
-            graphics.drawString(font, signals[i][2], contentRight - statusWidth - 10, rowTop + 11, i == 0 ? GREEN : MUTED, false);
+        if (showInfo) {
+            drawCenteredClipped(graphics, "ACTIVE SIGNAL: [ 8/10 ]", width / 2, y, contentWidth, 0xFFFFFFFF);
+            drawCenteredClipped(graphics, "STATUS: STANDBY - SCANNING", width / 2, y + 18, contentWidth, MUTED);
+            y += INFO_SECTION_HEIGHT;
         }
 
+        // Nearby signal list.
+        int rowHeight = compactRows ? COMPACT_ROW_HEIGHT : FULL_ROW_HEIGHT;
+        for (int i = 0; i < SIGNALS.length; i++) {
+            int rowTop = y + i * (rowHeight + ROW_GAP);
+            boolean selected = i == 0;
+            graphics.fill(contentLeft, rowTop, contentRight, rowTop + rowHeight, 0xFF080706);
+            graphics.fill(contentLeft + 3, rowTop + 3, contentRight - 3, rowTop + rowHeight - 3, selected ? 0xFF39301E : PANEL);
+            graphics.fill(contentLeft + 3, rowTop + 3, contentLeft + 6, rowTop + rowHeight - 3, selected ? AMBER : METAL_DARK);
+
+            String tag = SIGNALS[i][0];
+            String name = SIGNALS[i][1];
+            String status = SIGNALS[i][2];
+            int statusWidth = font.width(status);
+            int statusX = contentRight - statusWidth - 10;
+            int textY = rowTop + (rowHeight - font.lineHeight) / 2 + 1;
+            int statusColor = selected ? GREEN : MUTED;
+
+            if (compactRows) {
+                int tagWidth = font.width(tag);
+                int nameX = contentLeft + 12 + tagWidth + 6;
+                graphics.drawString(font, tag, contentLeft + 12, textY, AMBER_BRIGHT, false);
+                String shownName = font.plainSubstrByWidth(name, Math.max(0, statusX - nameX - 6));
+                graphics.drawString(font, shownName, nameX, textY, 0xFFFFFFFF, false);
+            } else {
+                graphics.drawString(font, tag, contentLeft + 12, rowTop + 6, AMBER_BRIGHT, false);
+                String shownName = font.plainSubstrByWidth(name, Math.max(0, statusX - contentLeft - 18));
+                graphics.drawString(font, shownName, contentLeft + 12, rowTop + 18, 0xFFFFFFFF, false);
+            }
+            graphics.drawString(font, status, statusX, textY, statusColor, false);
+        }
+        y += listHeight(compactRows) + SECTION_GAP;
+
         // Signal details panel.
-        int detailTop = listTop + signals.length * (rowHeight + 3) + 5;
-        int detailBottom = bottom - 44;
-        graphics.fill(contentLeft + 8, detailTop, contentRight - 8, detailBottom, 0xFF080706);
-        graphics.fill(contentLeft + 12, detailTop + 4, contentRight - 12, detailBottom - 4, PANEL_INNER);
-        drawCentered(graphics, "SIGNAL DETAILS", width / 2, detailTop + 8, 0xFFFFFFFF);
-        graphics.drawString(font, "MODE: LOCAL", contentLeft + 20, detailTop + 26, AMBER_BRIGHT, false);
-        graphics.drawString(font, "RANGE: NEARBY", contentLeft + 20, detailTop + 41, 0xFFFFFFFF, false);
-        graphics.drawString(font, "TOWER: NONE", contentLeft + 20, detailTop + 56, 0xFFFFFFFF, false);
-        graphics.drawString(font, "NETWORK: STANDBY", contentLeft + 20, detailTop + 71, MUTED, false);
+        if (showDetails) {
+            int detailTop = y;
+            int detailBottom = detailTop + DETAILS_PANEL_HEIGHT;
+            graphics.fill(contentLeft + 8, detailTop, contentRight - 8, detailBottom, 0xFF080706);
+            graphics.fill(contentLeft + 12, detailTop + 4, contentRight - 12, detailBottom - 4, PANEL_INNER);
+            drawCentered(graphics, "SIGNAL DETAILS", width / 2, detailTop + 8, 0xFFFFFFFF);
+            graphics.drawString(font, "MODE: LOCAL", contentLeft + 20, detailTop + 26, AMBER_BRIGHT, false);
+            graphics.drawString(font, "RANGE: NEARBY", contentLeft + 20, detailTop + 41, 0xFFFFFFFF, false);
+            graphics.drawString(font, "TOWER: NONE", contentLeft + 20, detailTop + 56, 0xFFFFFFFF, false);
+            graphics.drawString(font, "NETWORK: STANDBY", contentLeft + 20, detailTop + 71, MUTED, false);
+        }
+        graphics.disableScissor();
 
         // Footer plaque.
         int footerTop = bottom - 29;
@@ -131,6 +199,22 @@ public final class RadioReceiverScreen extends Screen {
         drawCenteredClipped(graphics, "R: RADIO  |  ESC: EXIT", width / 2, footerTop + 7, panelWidth - 112, AMBER_BRIGHT);
 
         super.render(graphics, mouseX, mouseY, delta);
+    }
+
+    private static int listHeight(boolean compactRows) {
+        int rowHeight = compactRows ? COMPACT_ROW_HEIGHT : FULL_ROW_HEIGHT;
+        return SIGNALS.length * rowHeight + (SIGNALS.length - 1) * ROW_GAP;
+    }
+
+    private static int contentHeight(boolean showInfo, boolean compactRows, boolean showDetails) {
+        int total = METER_SECTION_HEIGHT + listHeight(compactRows) + SECTION_GAP;
+        if (showInfo) {
+            total += INFO_SECTION_HEIGHT;
+        }
+        if (showDetails) {
+            total += DETAILS_PANEL_HEIGHT + SECTION_GAP;
+        }
+        return total;
     }
 
     private void drawCorner(GuiGraphics graphics, int x, int y) {
