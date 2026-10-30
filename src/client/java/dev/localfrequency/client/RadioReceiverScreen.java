@@ -57,7 +57,9 @@ public final class RadioReceiverScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        renderBackground(graphics, mouseX, mouseY, delta);
+        // No renderBackground() call here: vanilla already draws the blurred
+        // background for every screen, and blurring twice in one frame crashes
+        // with "Can only blur once per frame".
 
         // Decide which sections fit before sizing the panel, so the screen
         // degrades gracefully at large GUI scales or small windows:
